@@ -1,0 +1,23 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+numpy = "1.21"
+torch = "1.11"
+jax = {extras = ["cuda"], version = "*"}
+jaxlib = "0.3.0"
+librosa = "*"
+scipy = "*"
+matplotlib = "*"
+pydantic = "*"
+
+[dev-packages]
+black = {extras = ["jupyter"], version = "*"}
+mypy = "*"
+flake8 = "*"
+jupyter = "*"
+
+[requires]
+python_version = "3.10"
