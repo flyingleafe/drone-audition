@@ -1,8 +1,9 @@
 with import <nixpkgs> {};
 
 let 
+  jaxlibSources = "https://storage.googleapis.com/jax-releases/jax_cuda_releases.html";
   pipenvWrapper = writeShellScriptBin "pipenvSource" ''
-    ${pipenv}/bin/pipenv --python=${python39}/bin/python --site-packages $@
+    PIP_FIND_LINKS=${jaxlibSources} ${pipenv}/bin/pipenv --python=${python39}/bin/python --site-packages $@
   '';
 
 in stdenv.mkDerivation {
