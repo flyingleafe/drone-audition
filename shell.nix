@@ -2,7 +2,7 @@ with import <nixpkgs> {};
 
 let 
   pipenvWrapper = writeShellScriptBin "pipenvSource" ''
-    ${pipenv}/bin/pipenv --python=${python310}/bin/python --site-packages $@
+    ${pipenv}/bin/pipenv --python=${python39}/bin/python --site-packages $@
   '';
 
 in stdenv.mkDerivation {
@@ -13,11 +13,11 @@ in stdenv.mkDerivation {
     git
     vscodium
 
-    python310
-    python310Packages.pytorch
-    python310Packages.numpy
-    python310Packages.jax
-    python310Packages.jaxlib
+    python39
+    python39Packages.pytorch
+    python39Packages.numpy
+    python39Packages.jax
+    python39Packages.jaxlib
 
     pipenvWrapper
   ];

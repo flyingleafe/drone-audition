@@ -1,6 +1,8 @@
 import torch
 import sys
+import os
 import numpy as np
+import soundfile as sf
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import librosa as lr
@@ -10,6 +12,12 @@ import IPython.display as ipd
 sys.path.append("..")
 
 from env import settings
+
+
+def save_wav(wav, name: str):
+    samples_dir = os.path.join(settings.WORKSPACE_DIR, "wav_samples")
+    os.makedirs(samples_dir, exist_ok=True)
+    sf.write(os.path.join(samples_dir, f"{name}.wav"), wav, settings.SAMPLE_RATE)
 
 
 def plot_dwim(*args, **kwargs):

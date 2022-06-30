@@ -4,14 +4,18 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-numpy = "1.21"
-torch = "1.11"
-jax = {extras = ["cuda"], version = "*"}
-jaxlib = "0.3.0"
+numpy = "*"
+torch = ">= 1.11.0"
+jax = "*"
 librosa = "*"
 scipy = "*"
 matplotlib = "*"
 pydantic = "*"
+optax = "*"
+dm-haiku = "*"
+soundfile = "*"
+tqdm = "*"
+elegy = ">= 0.8.5"
 
 [dev-packages]
 black = {extras = ["jupyter"], version = "*"}
@@ -20,4 +24,4 @@ flake8 = "*"
 jupyter = "*"
 
 [requires]
-python_version = "3.10"
+python_version = "3.9"

@@ -28,17 +28,27 @@ def clean_time_duplicates(ts: np.ndarray, *seqs):
     return [ts[ix]] + [s[:, ix] for s in seqs]
 
 
+def _slice_last_dim(x: np.ndarray, k: slice) -> np.ndarray:
+    slc = [slice(None)] * (x.ndim - 1) + [k]
+    return x[tuple(slc)]
+
+
+def _pad_last_dim(x: np.ndarray, padding, mode: str) -> np.ndarray:
+    pd = tuple([(0, 0)] * (x.ndim - 1) + [padding])
+    return np.pad(x, pd if len(pd) > 1 else pd[0], mode=mode)  # type: ignore
+
+
 class SimpleDregonItem(dict):
     def __getitem__(self, key: str | slice):
         if isinstance(key, slice):
             return SimpleDregonItem(
                 **{
                     "path": self["path"],
-                    "wav": self["wav"][:, key],
-                    "ts": self["ts"][key],
-                    "motor_speed": self["motor_speed"][:, key],
-                    "angular_velocity": self["angular_velocity"][:, key],
-                    "acceleration": self["acceleration"][:, key],
+                    "wav": _slice_last_dim(self["wav"], key),
+                    "ts": _slice_last_dim(self["ts"], key),
+                    "motor_speed": _slice_last_dim(self["motor_speed"], key),
+                    "angular_velocity": _slice_last_dim(self["angular_velocity"], key),
+                    "acceleration": _slice_last_dim(self["acceleration"], key),
                 }
             )
 
@@ -51,17 +61,13 @@ class SimpleDregonItem(dict):
         return SimpleDregonItem(
             **{
                 "path": self["path"],
-                "wav": np.pad(self["wav"], ((0, 0), padding), mode=mode),
-                "ts": np.pad(self["ts"], padding, mode=mode),
-                "motor_speed": np.pad(
-                    self["motor_speed"], ((0, 0), padding), mode=mode
+                "wav": _pad_last_dim(self["wav"], padding, mode),
+                "ts": _pad_last_dim(self["ts"], padding, mode),
+                "motor_speed": _pad_last_dim(self["motor_speed"], padding, mode),
+                "angular_velocity": _pad_last_dim(
+                    self["angular_velocity"], padding, mode
                 ),
-                "angular_velocity": np.pad(
-                    self["angular_velocity"], ((0, 0), padding), mode=mode
-                ),
-                "acceleration": np.pad(
-                    self["acceleration"], ((0, 0), padding), mode=mode
-                ),
+                "acceleration": _pad_last_dim(self["acceleration"], padding, mode),
             }
         )
 
@@ -82,6 +88,11 @@ class DregonDataset(Dataset):
         sample_rate: int = 44100,
         cached: bool = True,
     ) -> None:
+        coordinates = loadmat(os.path.join(data_dir, "coordinates.mat"))
+
+        self.mic_pos = coordinates["micPos"]
+        self.rotors_pos = coordinates["rotorsPos"]
+
         self.data_dir = os.path.join(data_dir, subset)
         self.sample_rate = sample_rate
 
@@ -99,11 +110,7 @@ class DregonDataset(Dataset):
         path = self.wavs[index]
         wav = _load_audio(path, sr=self.sample_rate)
 
-        audiots = (
-            loadmat(self.audiots[index])["audio_timestamps"]
-            .astype(np.float32)
-            .flatten()
-        )
+        audiots = loadmat(self.audiots[index])["audio_timestamps"].flatten()
 
         if self.sample_rate != DregonDataset.default_sample_rate:
             audiots = _resample_ts(audiots, wav.shape[1])
@@ -138,7 +145,7 @@ class DregonDataset(Dataset):
         angular_velocity = interp1d(imu_ts, angular_velocity, kind="linear")(audiots)
         acceleration = interp1d(imu_ts, acceleration, kind="linear")(audiots)
 
-        # start from 0
+        # start from 0 and avoid precision errors when casting to float32
         audiots -= audiots[0]
 
         return SimpleDregonItem(
