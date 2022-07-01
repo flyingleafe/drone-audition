@@ -42,7 +42,13 @@ def train_val_split(
 
 
 def main() -> None:
-    rseq = hk.PRNGSequence(42)
+    EPOCHS = 500
+    MODEL_DIR = f"{settings.WORKSPACE_DIR}/models/HarmonicNoiseGen"
+    LOGS_DIR = f"{settings.WORKSPACE_DIR}/logs/HarmonicNoiseGen"
+    SEED = 42
+    BATCH_SIZE = 32
+
+    rseq = hk.PRNGSequence(SEED)
 
     dregon = DregonDataset(
         data_dir=settings.DREGON_PATH, sample_rate=settings.SAMPLE_RATE
@@ -52,10 +58,11 @@ def main() -> None:
     samples = SamplesSet(dregon_3ch, 16384)
     train_ds, val_ds = train_val_split(next(rseq), samples, val_pct=0.1)
 
-    X_train = ds_map(train_ds, lambda x: x["motor_speed"])
-    y_train = ds_map(train_ds, lambda x: x["wav"])
-    X_val = ds_map(val_ds, lambda x: x["motor_speed"])
-    y_val = ds_map(val_ds, lambda x: x["wav"])
+    train_ds = ds_map(train_ds, lambda x: (x["motor_speed"], x["wav"]))
+    val_ds = ds_map(val_ds, lambda x: (x["motor_speed"], x["wav"]))
+
+    train_dl = eg.data.DataLoader(train_ds, BATCH_SIZE, n_workers=4, shuffle=True)
+    val_dl = eg.data.DataLoader(val_ds, 1, n_workers=4)
 
     # prepare model (with batching)
     module = hk.transform_with_state(
@@ -73,27 +80,19 @@ def main() -> None:
         optimizer=optax.adam(1e-3),
     )
 
-    EPOCHS = 1
-    MODEL_DIR = f"{settings.WORKSPACE_DIR}/models/HarmonicNoiseGen"
-    LOGS_DIR = f"{settings.WORKSPACE_DIR}/logs/HarmonicNoiseGen"
-
-    model.summary(jnp.array([X_train[0], X_train[1], X_train[2]]))  # type: ignore
+    model.summary(jnp.array([train_ds[0][0], train_ds[1][0], train_ds[2][0]]))  # type: ignore
 
     model.fit(
-        inputs=iter(X_train),
-        labels=iter(y_train),
+        inputs=train_dl,
         epochs=EPOCHS,
-        steps_per_epoch=8,
-        batch_size=32,
-        validation_data=(iter(X_val), iter(y_val)),
-        shuffle=True,
+        validation_data=val_dl,
         callbacks=[
             eg.callbacks.ModelCheckpoint(MODEL_DIR, save_best_only=True),
             eg.callbacks.TensorBoard(LOGS_DIR),
         ],
     )
 
-    eval_res = model.evaluate(x=X_val, y=y_val)
+    eval_res = model.evaluate(val_dl)
     print(eval_res)
 
 
