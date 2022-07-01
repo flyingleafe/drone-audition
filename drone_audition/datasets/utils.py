@@ -3,6 +3,7 @@ import torch.nn.functional as F
 import numpy as np
 import jax.numpy as jnp
 
+from typing import Optional
 from copy import deepcopy
 from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
@@ -93,6 +94,18 @@ def crop_or_wrap(wav, crop_len, offset):
     return wav
 
 
+def ds_map(ds: Dataset, fn) -> Dataset:
+    cls = type(
+        ds.__class__.__name__ + "_mapped",
+        (Dataset,),
+        {
+            "__len__": lambda self: len(ds),  # type: ignore
+            "__getitem__": lambda self, index: fn(ds[index]),
+        },
+    )
+    return cls()
+
+
 class ChannelSelect(Dataset):
     """
     Just select a single channel from dataset with wavs
@@ -121,7 +134,9 @@ class ChannelSplit(Dataset):
     number of channels.
     """
 
-    def __init__(self, ds: Dataset, wav_field: str = "wav", num_ch: int | None = None):
+    def __init__(
+        self, ds: Dataset, wav_field: str = "wav", num_ch: Optional[int] = None
+    ):
         self.ds = ds
         self.wav_field = wav_field
 
