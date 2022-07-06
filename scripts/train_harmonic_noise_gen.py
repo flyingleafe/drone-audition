@@ -1,13 +1,11 @@
 import sys
-import jax
-import torch
 import optax
 import elegy as eg
 import haiku as hk
 
-from typing import Any, Sequence, Sized
-from jax import numpy as jnp, vmap
-from torch.utils.data import random_split, Dataset
+from typing import Tuple
+from jax import vmap
+from torch.utils.data import DataLoader
 
 sys.path.append("..")
 
@@ -18,27 +16,27 @@ from drone_audition.datasets.utils import (
     ChannelSelect,
     SamplesSet,
     ds_map,
+    train_val_split,
 )
 from env import settings
 
 
-class SizedDataset(Dataset, Sized):
-    ...
-
-
-def train_val_split(
-    rng: jnp.ndarray, ds: SizedDataset, val_pct: float = 0.2
-) -> Sequence[Dataset[Any]]:
-    assert val_pct < 1.0
-    val_len = int(len(ds) * val_pct)
-    train_len = len(ds) - val_len
-    return random_split(
-        ds,
-        [train_len, val_len],
-        generator=torch.Generator().manual_seed(
-            int(jax.random.randint(rng, [], 0, 99999999))
-        ),
+def prepare_dataloaders(rng, batch_size) -> Tuple[DataLoader, DataLoader]:
+    dregon = DregonDataset(
+        data_dir=settings.DREGON_PATH, sample_rate=settings.SAMPLE_RATE
     )
+
+    dregon_3ch = ChannelSelect(dregon, 3)
+    samples = SamplesSet(dregon_3ch, 16384)
+    train_ds, val_ds = train_val_split(rng, samples, val_pct=0.1)
+
+    train_ds = ds_map(train_ds, lambda x: (x["motor_speed"], x["wav"]))
+    val_ds = ds_map(val_ds, lambda x: (x["motor_speed"], x["wav"]))
+
+    train_dl = eg.data.DataLoader(train_ds, batch_size, n_workers=4, shuffle=True)
+    val_dl = eg.data.DataLoader(val_ds, 1, n_workers=4)
+
+    return train_dl, val_dl
 
 
 def main() -> None:
@@ -49,20 +47,7 @@ def main() -> None:
     BATCH_SIZE = 32
 
     rseq = hk.PRNGSequence(SEED)
-
-    dregon = DregonDataset(
-        data_dir=settings.DREGON_PATH, sample_rate=settings.SAMPLE_RATE
-    )
-
-    dregon_3ch = ChannelSelect(dregon, 3)
-    samples = SamplesSet(dregon_3ch, 16384)
-    train_ds, val_ds = train_val_split(next(rseq), samples, val_pct=0.1)
-
-    train_ds = ds_map(train_ds, lambda x: (x["motor_speed"], x["wav"]))
-    val_ds = ds_map(val_ds, lambda x: (x["motor_speed"], x["wav"]))
-
-    train_dl = eg.data.DataLoader(train_ds, BATCH_SIZE, n_workers=4, shuffle=True)
-    val_dl = eg.data.DataLoader(val_ds, 1, n_workers=4)
+    train_dl, val_dl = prepare_dataloaders(next(rseq), BATCH_SIZE)
 
     # prepare model (with batching)
     module = hk.transform_with_state(
@@ -80,7 +65,7 @@ def main() -> None:
         optimizer=optax.adam(1e-3),
     )
 
-    model.summary(jnp.array([train_ds[0][0], train_ds[1][0], train_ds[2][0]]))  # type: ignore
+    model.summary(next(iter(train_dl))[0])  # type: ignore
 
     model.fit(
         inputs=train_dl,

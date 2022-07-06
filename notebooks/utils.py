@@ -123,3 +123,55 @@ def show_wav(
     plt.show()
 
     ipd.display(ipd.Audio(wav, rate=sr))
+
+
+def plt_wav_speeds(item, figsize=(15, 10)):
+    fig, axes = plt.subplots(figsize=figsize, nrows=3, ncols=1, sharex=True)
+    plt.sca(axes[0])
+    wav = item["wav"]
+    if len(wav.shape) > 1:
+        wav = wav[0, :]
+
+    plt.plot(item["ts"], wav)
+    plt.ylabel("Amplitude")
+
+    plt.sca(axes[1])
+    for i in range(4):
+        plt.plot(item["ts"].flatten(), item["motor_speed"][i], label=f"m{i}", alpha=0.5)
+
+    plt.ylabel("Motor speed")
+    plt.xlabel("Time")
+    plt.legend()
+
+    plt.sca(axes[2])
+    plt.plot(
+        item["ts"].flatten(),
+        item["angular_velocity"][2],
+        label="ang.velocity (z-axis)",
+        alpha=0.5,
+    )
+    plt.plot(
+        item["ts"].flatten(),
+        item["acceleration"][2],
+        label="acceleration (z-axis)",
+        alpha=0.5,
+    )
+    plt.ylabel("IMU measurements")
+    plt.xlabel("Time")
+    plt.legend()
+
+
+def plot_avg_mag(wav, log=False, **kwargs):
+    avg_mag = jnp.mean(jnp.abs(lr.stft(np.array(wav), center=False, **kwargs)), axis=-1)
+    if log:
+        avg_mag = jnp.log(avg_mag)
+    return plt.plot(jnp.arange(len(avg_mag)), avg_mag)
+
+
+def plot_avg_mag_with_log(wav, **kwargs):
+    fig, axes = plt.subplots(figsize=(10, 4), nrows=1, ncols=2)
+    plt.sca(axes[0])
+    plot_avg_mag(wav, **kwargs)
+    plt.sca(axes[1])
+    plot_avg_mag(wav, log=True, **kwargs)
+    fig.tight_layout()

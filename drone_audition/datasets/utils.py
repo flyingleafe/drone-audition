@@ -1,11 +1,12 @@
 import torch
+import jax
 import torch.nn.functional as F
 import numpy as np
 import jax.numpy as jnp
 
-from typing import Optional
+from typing import Optional, Sequence, Any, Sized
 from copy import deepcopy
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, random_split
 from tqdm import tqdm
 from collections import abc
 
@@ -201,6 +202,25 @@ class SamplesSet(Dataset):
         return chunk
 
 
+class SizedDataset(Dataset, Sized):
+    ...
+
+
+def train_val_split(
+    rng: jnp.ndarray, ds: SizedDataset, val_pct: float = 0.2
+) -> Sequence[Dataset[Any]]:
+    assert val_pct < 1.0
+    val_len = int(len(ds) * val_pct)
+    train_len = len(ds) - val_len
+    return random_split(
+        ds,
+        [train_len, val_len],
+        generator=torch.Generator().manual_seed(
+            int(jax.random.randint(rng, [], 0, 99999999))
+        ),
+    )
+
+
 def numpy_collate(batch):
     """
     A simplified rewrite of default_collate from Pytorch which does not use torch tensors.
@@ -212,7 +232,6 @@ def numpy_collate(batch):
     elif isinstance(elem, (str, bytes)):
         return batch
     elif isinstance(elem, abc.Sequence):
-        print(elem)
         it = iter(batch)
         elem_size = len(next(it))
         if not all(len(e) == elem_size for e in it):
