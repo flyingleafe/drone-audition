@@ -3,7 +3,6 @@ import sys
 import os
 import numpy as np
 import soundfile as sf
-import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import librosa as lr
 import librosa.display as lrd
@@ -71,8 +70,8 @@ def show_wav(
         wav, sr = lr.load(wav)
     elif type(wav) == torch.Tensor:
         wav = wav.detach().numpy()
-    elif isinstance(wav, jnp.DeviceArray):
-        wav = np.array(wav)
+    # elif isinstance(wav, jnp.DeviceArray):
+    #     wav = np.array(wav)
 
     if len(wav.shape) > 1:
         if wav.shape[0] > 1:
@@ -162,10 +161,10 @@ def plt_wav_speeds(item, figsize=(15, 10)):
 
 
 def plot_avg_mag(wav, log=False, **kwargs):
-    avg_mag = jnp.mean(jnp.abs(lr.stft(np.array(wav), center=False, **kwargs)), axis=-1)
+    avg_mag = np.mean(np.abs(lr.stft(np.array(wav), center=False, **kwargs)), axis=-1)
     if log:
-        avg_mag = jnp.log(avg_mag)
-    return plt.plot(jnp.arange(len(avg_mag)), avg_mag)
+        avg_mag = np.log(avg_mag)
+    return plt.plot(np.arange(len(avg_mag)), avg_mag)
 
 
 def plot_avg_mag_with_log(wav, **kwargs):

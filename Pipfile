@@ -6,16 +6,18 @@ name = "pypi"
 [packages]
 numpy = "*"
 torch = ">= 1.11.0"
-jax = {extras = ["cuda"], version = "*"}
+torchvision = "*"
+torchaudio = "*"
 librosa = "*"
 scipy = "*"
 matplotlib = "*"
 pydantic = "*"
-optax = "*"
-dm-haiku = "*"
 soundfile = "*"
 tqdm = "*"
-elegy = ">= 0.8.5"
+pytorch-lightning = ">= 1.6.0"
+asteroid = ">= 0.6.0"
+asteroid-filterbanks = "*"
+
 
 [dev-packages]
 black = {extras = ["jupyter"], version = "*"}

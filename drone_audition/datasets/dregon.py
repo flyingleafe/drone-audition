@@ -141,9 +141,11 @@ class DregonDataset(Dataset):
         audiots = audiots[al:ar]
         wav = wav[:, al:ar]
 
-        motor_speed = interp1d(motor_ts, motor_speed, kind="linear")(audiots)
-        angular_velocity = interp1d(imu_ts, angular_velocity, kind="linear")(audiots)
-        acceleration = interp1d(imu_ts, acceleration, kind="linear")(audiots)
+        motor_speed_int = interp1d(motor_ts, motor_speed, kind="linear")(audiots)
+        angular_velocity_int = interp1d(imu_ts, angular_velocity, kind="linear")(
+            audiots
+        )
+        acceleration_int = interp1d(imu_ts, acceleration, kind="linear")(audiots)
 
         # start from 0 and avoid precision errors when casting to float32
         audiots -= audiots[0]
@@ -153,8 +155,9 @@ class DregonDataset(Dataset):
                 "path": path,
                 "wav": wav,
                 "ts": audiots.astype(np.float32),
-                "motor_speed": motor_speed.astype(np.float32),
-                "angular_velocity": angular_velocity.astype(np.float32),
-                "acceleration": acceleration.astype(np.float32),
+                "motor_speed": motor_speed_int.astype(np.float32),
+                "angular_velocity": angular_velocity_int.astype(np.float32),
+                "acceleration": acceleration_int.astype(np.float32),
+                "orig_motor_speed": motor_speed.astype(np.float32),
             }
         )

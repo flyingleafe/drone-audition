@@ -1,8 +1,6 @@
 import torch
-import jax
 import torch.nn.functional as F
 import numpy as np
-import jax.numpy as jnp
 
 from typing import Optional, Sequence, Any, Sized
 from copy import deepcopy
@@ -38,7 +36,7 @@ def normalize_volume(wav):
     if isinstance(wav, torch.Tensor):
         max_amp = torch.max(torch.abs(wav))
     else:
-        max_amp = jnp.max(jnp.abs(wav))
+        max_amp = np.max(np.abs(wav))
 
     coeff = 0.95 / max_amp
     return wav * coeff
@@ -207,7 +205,7 @@ class SizedDataset(Dataset, Sized):
 
 
 def train_val_split(
-    rng: jnp.ndarray, ds: SizedDataset, val_pct: float = 0.2
+    ds: SizedDataset, val_pct: float = 0.2, seed=42
 ) -> Sequence[Dataset[Any]]:
     assert val_pct < 1.0
     val_len = int(len(ds) * val_pct)
@@ -215,9 +213,7 @@ def train_val_split(
     return random_split(
         ds,
         [train_len, val_len],
-        generator=torch.Generator().manual_seed(
-            int(jax.random.randint(rng, [], 0, 99999999))
-        ),
+        generator=torch.Generator().manual_seed(seed),
     )
 
 
