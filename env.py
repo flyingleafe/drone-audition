@@ -1,4 +1,5 @@
 from pydantic import BaseSettings
+from dotenv import find_dotenv
 
 
 class Settings(BaseSettings):
@@ -7,4 +8,4 @@ class Settings(BaseSettings):
     SAMPLE_RATE: int
 
 
-settings = Settings(_env_file=".env")
+settings = Settings(_env_file=find_dotenv(".env"))

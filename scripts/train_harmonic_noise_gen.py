@@ -8,7 +8,7 @@ from typing import Tuple
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from torch import optim
 from torch.utils.data import DataLoader
-from asteroid import System
+from asteroid.engine import System
 from asteroid.losses import SingleSrcMultiScaleSpectral
 
 sys.path.append("..")
@@ -24,14 +24,14 @@ from drone_audition.datasets.utils import (
 from env import settings
 
 
-def prepare_dataloaders(rng, batch_size) -> Tuple[DataLoader, DataLoader]:
+def prepare_dataloaders(batch_size, seed=42) -> Tuple[DataLoader, DataLoader]:
     dregon = DregonDataset(
         data_dir=settings.DREGON_PATH, sample_rate=settings.SAMPLE_RATE
     )
 
     dregon_3ch = ChannelSelect(dregon, 3)
     samples = SamplesSet(dregon_3ch, 16384)
-    train_ds, val_ds = train_val_split(rng, samples, val_pct=0.1)
+    train_ds, val_ds = train_val_split(samples, val_pct=0.1, seed=seed)
 
     train_ds = ds_map(train_ds, lambda x: (x["motor_speed"], x["wav"]))
     val_ds = ds_map(val_ds, lambda x: (x["motor_speed"], x["wav"]))
@@ -52,7 +52,7 @@ def main() -> None:
     os.makedirs(MODEL_DIR, exist_ok=True)
     os.makedirs(LOGS_DIR, exist_ok=True)
 
-    train_dl, val_dl = prepare_dataloaders(SEED, BATCH_SIZE)
+    train_dl, val_dl = prepare_dataloaders(BATCH_SIZE, SEED)
     model = DroneNoiseGen()
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=10)
