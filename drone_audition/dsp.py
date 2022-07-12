@@ -53,8 +53,8 @@ def freq_series_to_wav(
     Pretty much this is frequency modulation of the signal.
 
     Args:
-        freq (torch.Tensor): input frequency signal, shaped [N_1, .. N_k, T]
-        phase_shift (torch.Tensor): phase shift for each of signals, shaped [N_1, .. N_k]
+        freq (torch.Tensor): input frequency signal, shaped [B_1, .. B_k, T]
+        phase_shift (torch.Tensor): phase shift for each of signals, shaped [B_1, .. B_k, N], where N is the number of harmonics
 
     Returns:
         :class:`torch.Tensor` with shape [N_1, .. N_k, T] - sine waves with variable frequency

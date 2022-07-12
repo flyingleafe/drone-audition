@@ -1,3 +1,3 @@
-from .harmonic_noise_gen import HarmonicNoiseGen
+from .harmonic_noise_gen import PropellerNoiseGen, DroneNoiseGen
 
-__all__ = ["HarmonicNoiseGen"]
+__all__ = ["PropellerNoiseGen", "DroneNoiseGen"]
