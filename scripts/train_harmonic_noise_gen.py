@@ -35,8 +35,11 @@ def prepare_dataloaders(batch_size, seed=42) -> Tuple[DataLoader, DataLoader]:
     train_ds = ds_map(train_ds, lambda x: (x["motor_speed"], x["wav"]))
     val_ds = ds_map(val_ds, lambda x: (x["motor_speed"], x["wav"]))
 
-    train_dl = DataLoader(train_ds, batch_size, num_workers=4, shuffle=True)
-    val_dl = DataLoader(val_ds, 1, num_workers=4)
+    n_cpus = os.cpu_count() or 1
+    train_dl = DataLoader(
+        train_ds, batch_size, num_workers=n_cpus, pin_memory=True, shuffle=True
+    )
+    val_dl = DataLoader(val_ds, 1, num_workers=n_cpus, pin_memory=True)
 
     return train_dl, val_dl
 
@@ -58,7 +61,11 @@ def main() -> None:
 
     stft_n_ffts = [4096, 2048, 1024, 512]
     hops = [n // 4 for n in stft_n_ffts]
-    loss = SingleSrcMultiScaleSpectral(stft_n_ffts, stft_n_ffts, hops, 0.1)
+    loss_module = SingleSrcMultiScaleSpectral(stft_n_ffts, stft_n_ffts, hops, 0.1)
+    if torch.cuda.is_available():
+        loss_module = loss_module.cuda()
+
+    loss = lambda pred, target: loss_module(pred, target).mean()
 
     system = System(model, optimizer, loss, train_dl, val_dl, scheduler)
     tb_logger = pl.loggers.TensorBoardLogger(
