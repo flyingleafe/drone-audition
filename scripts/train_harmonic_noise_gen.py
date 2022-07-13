@@ -1,7 +1,6 @@
 import sys
 import os
 import torch
-import numpy as np
 import pytorch_lightning as pl
 
 from typing import Tuple
@@ -57,8 +56,9 @@ def main() -> None:
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=10)
 
-    stft_n_ffts = np.array([4096, 2048, 1024, 512])
-    loss = SingleSrcMultiScaleSpectral(stft_n_ffts, stft_n_ffts, stft_n_ffts / 4, 0.1)
+    stft_n_ffts = [4096, 2048, 1024, 512]
+    hops = [n // 4 for n in stft_n_ffts]
+    loss = SingleSrcMultiScaleSpectral(stft_n_ffts, stft_n_ffts, hops, 0.1)
 
     system = System(model, optimizer, loss, train_dl, val_dl, scheduler)
     tb_logger = pl.loggers.TensorBoardLogger(

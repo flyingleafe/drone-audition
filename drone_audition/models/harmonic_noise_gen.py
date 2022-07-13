@@ -35,7 +35,9 @@ class DroneNoiseGen(nn.Module):
 
         propeller_outputs = []
         for i in range(len(self.propellers)):
-            inp = speed_rps.index_select(-2, torch.tensor(i)).squeeze(-2)
+            inp = speed_rps.index_select(
+                -2, torch.tensor(i).to(device=speed_rps.device)
+            ).squeeze(-2)
             outp = self.propellers[i](inp)
             propeller_outputs.append(outp)
 
