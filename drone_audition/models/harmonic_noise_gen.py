@@ -7,39 +7,54 @@ from ..dsp import freq_series_to_harmonics
 class PropellerNoiseGen(nn.Module):
     def __init__(self, n_harmonics: int = 50, n_blades: int = 2):
         super().__init__()
-        self.log_A = nn.Parameter(torch.randn(n_harmonics))
-        self.phi = nn.Parameter(torch.randn(n_harmonics))
+        self.n_harmonics = n_harmonics
+        self.log_A = nn.Parameter(
+            torch.log(1 / torch.arange(1, n_harmonics + 1)) + torch.randn(n_harmonics)
+        )
         self.n_blades = n_blades
 
-    def forward(self, speed_rps: torch.Tensor):
-        harmonics = freq_series_to_harmonics(
-            speed_rps * float(self.n_blades),
-            self.phi.tile(list(speed_rps.shape[:-1]) + [1]),
+    def forward(self, speed_rps: torch.Tensor, phase_shift: torch.Tensor):
+        assert speed_rps.shape[:-1] == phase_shift.shape
+
+        # make phase shifts for each of the harmonics of BPF from rotor phase shift
+        # make it here so that we can probably add per-harmonic learned constant
+        # corrections to each of the phase shifts
+        coeffs = torch.arange(1, self.n_harmonics + 1).to(phase_shift)
+        harmonic_phase_shifts = torch.matmul(
+            (phase_shift * float(self.n_blades)).unsqueeze(-1), coeffs.unsqueeze(0)
         )
 
-        return torch.matmul(torch.exp(self.log_A.unsqueeze(0)), harmonics)
+        harmonics = freq_series_to_harmonics(
+            speed_rps * float(self.n_blades),
+            harmonic_phase_shifts,
+        )
+
+        return torch.matmul(torch.exp(self.log_A.unsqueeze(0)), harmonics).squeeze(-2)
 
 
 class DroneNoiseGen(nn.Module):
-    def __init__(self, n_motors: int = 4, n_blades: int = 2, n_harmonics: int = 50):
+    def __init__(
+        self,
+        n_motors: int = 4,
+        n_blades: int = 2,
+        n_harmonics: int = 50,
+        train_phase_shifts=False,
+    ):
         super().__init__()
-        self.propellers = nn.ModuleList(
-            [PropellerNoiseGen(n_harmonics, n_blades) for i in range(n_motors)]
+        self.n_motors = n_motors
+        self.propeller = PropellerNoiseGen(n_harmonics, n_blades)
+        self.log_motor_coeffs = nn.Parameter(torch.rand(n_motors))
+        self.phase_shifts = nn.Parameter(
+            torch.zeros(n_motors), requires_grad=train_phase_shifts
         )
 
-        # no exponentiation, they have no reason to get negatve right
-        self.motor_coeffs = nn.Parameter(torch.rand(n_motors) + 1.0)
-
     def forward(self, speed_rps: torch.Tensor):
-        assert speed_rps.shape[-2] == len(self.propellers)
+        assert speed_rps.shape[-2] == self.n_motors
 
-        propeller_outputs = []
-        for i in range(len(self.propellers)):
-            inp = speed_rps.index_select(
-                -2, torch.tensor(i).to(device=speed_rps.device)
-            ).squeeze(-2)
-            outp = self.propellers[i](inp)
-            propeller_outputs.append(outp)
+        propeller_outputs = self.propeller(
+            speed_rps, self.phase_shifts.tile(list(speed_rps.shape[:-2]) + [1])
+        )
 
-        stacked = torch.stack(propeller_outputs, -2)
-        return torch.matmul(self.motor_coeffs.unsqueeze(0), stacked)
+        return torch.matmul(
+            torch.exp(self.log_motor_coeffs.unsqueeze(0)), propeller_outputs
+        ).squeeze(-2)
